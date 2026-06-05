@@ -22,6 +22,9 @@ def get_player_stats(season):
             'tov_pg': round(row['TOV'] / gp) if gp > 0 else 0,
             'min_pg': round(row['MIN'] / gp) if gp > 0 else 0,
             'pts_pg': round(row['PTS'] / gp) if gp > 0 else 0,
+            'fga_pg': round(row['FGA'] / gp, 2) if gp > 0 else 0,
+            'fg3a_pg': round(row['FG3A'] / gp, 2) if gp > 0 else 0,
+            'fta_pg': round(row['FTA'] / gp, 2) if gp > 0 else 0,
             'usg_pct': 0
         }
 
@@ -51,7 +54,7 @@ def get_team_advanced_stats(season):
 
 def get_team_roster(team_id):
    roster = commonteamroster.CommonTeamRoster(team_id=team_id)
-   time.sleep(0.2)
+   time.sleep(0.6)
    df = roster.get_data_frames()[0]
    player_ids = []
 
