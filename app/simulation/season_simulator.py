@@ -80,8 +80,68 @@ def get_standings(standings):
     }
 
 
-def simulate_playoffs(standings, data):
-    pass
+
+def simulate_series(team1, team2, data):
+    team1_wins = 0
+    team2_wins = 0
+    
+    while team1_wins < 4 and team2_wins < 4:
+        # simulate one game
+        # home court goes to higher seed (team1)
+        home_score, away_score = simulate_game(team1, team2, data)
+        if home_score > away_score:
+            team1_wins += 1
+        else:
+            team2_wins += 1
+    
+    if team1_wins == 4:
+        return team1
+    else:
+        return team2
+
+def simulate_playoffs(bracket, data):
+    # first round - 8 series
+    east_first_round_winners = []
+    west_first_round_winners = []
+    
+    # east first round: 1v8, 2v7, 3v6, 4v5
+    matchups = [(0, 7), (1, 6), (2, 5), (3, 4)]
+    for high_seed, low_seed in matchups:
+        team1 = data[bracket['east'][high_seed]]
+        team2 = data[bracket['east'][low_seed]]
+        winner = simulate_series(team1, team2, data)
+        east_first_round_winners.append(winner)
+    
+    # west first round: 1v8, 2v7, 3v6, 4v5
+    for high_seed, low_seed in matchups:
+        team1 = data[bracket['west'][high_seed]]
+        team2 = data[bracket['west'][low_seed]]
+        winner = simulate_series(team1, team2, data)
+        west_first_round_winners.append(winner)
+    
+    # second round
+    east_second_round_winners = []
+    west_second_round_winners = []
+    
+    # east second round: 1v4 winner vs 2v3 winner, etc
+    second_round_matchups = [(0, 3), (1, 2)]
+    for high_seed, low_seed in second_round_matchups:
+        winner = simulate_series(east_first_round_winners[high_seed], east_first_round_winners[low_seed], data)
+        east_second_round_winners.append(winner)
+    
+    for high_seed, low_seed in second_round_matchups:
+        winner = simulate_series(west_first_round_winners[high_seed], west_first_round_winners[low_seed], data)
+        west_second_round_winners.append(winner)
+    
+    # conference finals
+    east_champion = simulate_series(east_second_round_winners[0], east_second_round_winners[1], data)
+    west_champion = simulate_series(west_second_round_winners[0], west_second_round_winners[1], data)
+    
+    # nba finals
+    champion = simulate_series(east_champion, west_champion, data)
+    
+    return champion
+    
 
 def get_schedule(season):
     schedule = scheduleleaguev2.ScheduleLeagueV2(season=season)
@@ -112,5 +172,5 @@ if __name__ == '__main__':
     data = get_all_data('2025-26')
     standings = simulate_season(data)
     bracket = get_standings(standings)
-    print("East seeds:", bracket['east'])
-    print("West seeds:", bracket['west'])
+    champion = simulate_playoffs(bracket, data)
+    print(f"Champion: {champion['team_name']}")
