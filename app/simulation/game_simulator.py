@@ -117,10 +117,6 @@ def simulate_game(home_team, away_team, data):
             away_score += simulate_possession(selected_player, away_team, home_team, league_avg_def)
     home_score = int(home_score * 1.01)
     return home_score, away_score 
-    
-
-def simulate_playoffs(bracket, data):
-    pass
 
 def get_league_avg_def_rating(data):
     total = sum(team['def_rating'] for team in data.values())
