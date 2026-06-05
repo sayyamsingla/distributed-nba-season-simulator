@@ -1,4 +1,4 @@
-# NBA Distributed Season Simulator
+# Distributed NBA Season Simulator
 
 A tool that simulates the entire NBA season 1000 times to predict who wins the championship.
 
