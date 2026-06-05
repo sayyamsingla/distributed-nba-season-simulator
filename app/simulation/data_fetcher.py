@@ -1,6 +1,6 @@
 from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashteamstats, commonteamroster
-from nba_api.stats.static import teams
 import pandas as pd
+import time
 
 def get_player_stats(season):
     stats = leaguedashplayerstats.LeagueDashPlayerStats(season=season)
@@ -30,21 +30,55 @@ def get_player_stats(season):
         if player_id in player_stats:
             player_stats[player_id]['usg_pct'] = row['USG_PCT']
 
-    # for key in player_stats.keys(): 
-    #     print(f"Key: {key}, Player stats: {player_stats[key]} \n")
-
     return player_stats
 
 
 def get_team_advanced_stats(season):
-    pass
+    stats = leaguedashteamstats.LeagueDashTeamStats(season=season, measure_type_detailed_defense='Advanced')
+    df = stats.get_data_frames()[0]
+    
+    team_stats = {}
+    for _, row in df.iterrows():
+        team_id = row['TEAM_ID']
+        team_stats[team_id] = {
+            'team_name': row['TEAM_NAME'],
+            'off_rating': row['OFF_RATING'],
+            'def_rating': row['DEF_RATING'],
+            'pace': row['PACE']
+        }
+
+    return team_stats
 
 def get_team_roster(team_id):
-    pass
+   roster = commonteamroster.CommonTeamRoster(team_id=team_id)
+   time.sleep(0.2)
+   df = roster.get_data_frames()[0]
+   player_ids = []
+
+   for _, player in df.iterrows():
+       player_ids.append(player['PLAYER_ID'])
+
+   return player_ids
+
 
 def get_all_data(season):
-    pass
+    data = {}
+    player_stats = get_player_stats(season=season)
+    teams_stats = get_team_advanced_stats(season=season)
+
+    for team_id in teams_stats: 
+        roster = get_team_roster(team_id)
+        data[team_id] = teams_stats[team_id]
+        data[team_id]['roster'] = [] 
+        for player_id in roster:
+            if player_id in player_stats:
+                player = player_stats[player_id]
+                player['player_id'] = player_id
+                data[team_id]['roster'].append(player)
+    return data
 
 if __name__ == '__main__':
-    result = get_player_stats('2025-26')
-    # print(result)
+#     result = get_player_stats('2025-26')
+#     result = get_team_advanced_stats('2025-26')
+#     get_team_roster(1610612760)
+    get_all_data('2025-26')
