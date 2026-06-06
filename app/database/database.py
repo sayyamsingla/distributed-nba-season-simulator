@@ -61,3 +61,6 @@ if __name__ == '__main__':
     save_simulation_result('2025-26', 'Oklahoma City Thunder')
     results = get_championship_probabilities('2025-26')
     print(results)
+
+
+

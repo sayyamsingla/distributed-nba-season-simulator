@@ -1,5 +1,5 @@
-from game_simulator import simulate_game
 from nba_api.stats.endpoints import scheduleleaguev2
+from app.simulation.game_simulator import simulate_game
 
 EAST_TEAMS = [
     1610612737,  # Atlanta Hawks

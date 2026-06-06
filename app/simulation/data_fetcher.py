@@ -1,6 +1,8 @@
 from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashteamstats, commonteamroster
 import pandas as pd
 import time
+import redis
+import json
 
 def get_player_stats(season):
     stats = leaguedashplayerstats.LeagueDashPlayerStats(season=season)
@@ -79,6 +81,32 @@ def get_all_data(season):
                 player['player_id'] = player_id
                 data[team_id]['roster'].append(player)
     return data
+
+
+def cache_data(season):
+    # fetch data from NBA API
+    data = get_all_data(season)
+    
+    # connect to Redis
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    
+    # save to Redis as JSON string
+    r.set(f'nba_data_{season}', json.dumps(data))
+    print(f"Data cached in Redis for season {season}")
+    return data
+
+def load_data(season):
+    # connect to Redis
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    
+    # load from Redis
+    data = r.get(f'nba_data_{season}')
+    
+    if data is None:
+        print("No cached data found, fetching from API...")
+        return cache_data(season)
+    
+    return {int(k): v for k, v in json.loads(data).items()}
 
 if __name__ == '__main__':
 #     result = get_player_stats('2025-26')

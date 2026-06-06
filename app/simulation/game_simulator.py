@@ -1,6 +1,5 @@
 import random
-from data_fetcher import get_all_data
-
+from app.simulation.data_fetcher import get_all_data
 # V1 assumptions - can be tuned in V2
 FOUL_SHOT_PENALTY_THREE = 0.05   # shooting % drops to 5% of normal on fouled three
 FOUL_SHOT_PENALT_REGULAR = 0.25  # shooting % drops to 25% of normal on fouled two
