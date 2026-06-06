@@ -37,8 +37,9 @@ WEST_TEAMS = [
     1610612762,  # Utah Jazz
 ]
 
-def simulate_season(data):
-    schedule = get_schedule('2025-26')
+def simulate_season(data, schedule=None):
+    if schedule is None:
+        schedule = get_schedule('2025-26')
     standings = {}
 
     for team_id in data: 
@@ -74,10 +75,6 @@ def get_standings(standings):
     sorted_east = sorted(east_standings, key=lambda x: east_standings[x]['wins'], reverse=True)
     sorted_west = sorted(west_standings, key=lambda x: west_standings[x]['wins'], reverse=True)
 
-    # return {
-    #     'east': sorted_east[:8],
-    #     'west': sorted_west[:8]
-    # }
     return {
         'east': sorted_east,
         'west': sorted_west
@@ -198,10 +195,8 @@ def print_standings(standings, data):
         print(f"{i}.) {name}: {wins}W - {losses}L")
 
 if __name__ == '__main__':
-    import sys
-    sys.path.append('../')
-    from data_fetcher import get_all_data
-    
+    from app.simulation.data_fetcher import get_all_data
+
     data = get_all_data('2025-26')
     standings = simulate_season(data)
     bracket = get_standings(standings)

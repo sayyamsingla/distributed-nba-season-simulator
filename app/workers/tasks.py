@@ -1,27 +1,3 @@
-# import sys
-# sys.path.append('../')
-
-# from celery import Celery
-# from simulation.data_fetcher import get_all_data
-# from simulation.season_simulator import simulate_season, get_standings, simulate_playoffs
-# from database.database import save_simulation_result, create_table
-
-# app = Celery(
-#     'tasks',
-#     broker='redis://localhost:6379/0',
-#     backend='redis://localhost:6379/0'
-# )
-
-# @app.task
-# def run_simulation(season):
-#     data = get_all_data(season)
-#     standings = simulate_season(data)
-#     bracket = get_standings(standings)
-#     champion = simulate_playoffs(bracket, data)
-#     save_simulation_result(season, champion['team_name'])
-#     return champion['team_name']
-
-
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))

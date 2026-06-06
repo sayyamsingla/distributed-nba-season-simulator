@@ -34,6 +34,14 @@ def save_simulation_result(season, champion):
     cursor.close()
     conn.close()
 
+def clear_simulations(season):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM simulation_results WHERE season = %s", (season,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def get_championship_probabilities(season):
     conn = get_connection()
     cursor = conn.cursor()
@@ -56,11 +64,6 @@ def get_championship_probabilities(season):
 if __name__ == '__main__':
     create_table()
     print("Table created successfully")
-    save_simulation_result('2025-26', 'Oklahoma City Thunder')
-    save_simulation_result('2025-26', 'Boston Celtics')
-    save_simulation_result('2025-26', 'Oklahoma City Thunder')
-    results = get_championship_probabilities('2025-26')
-    print(results)
 
 
 

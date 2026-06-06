@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Championship Probabilities</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Computer Modern Serif", Georgia, serif;
+      background: #fffff8;
+      color: #111;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 72px 24px 96px;
+    }
+
+    .page { width: 100%; max-width: 560px; }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 40px; }
+    h1 { font-size: 1.45rem; font-weight: normal; letter-spacing: 0.01em; margin-bottom: 5px; }
+    .meta { font-size: 0.875rem; font-style: italic; color: #555; }
+
+    /* ── Rules ── */
+    .rule     { border: none; border-top: 1.5px solid #111; }
+    .rule-mid { border: none; border-top: 0.75px solid #111; }
+
+    /* ── Controls ── */
+    .controls {
+      padding: 22px 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .slider-label {
+      font-style: italic;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 28px;
+    }
+
+    .slider-value {
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 2px;
+      background: #ccc;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #111;
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #111;
+      border: none;
+      cursor: pointer;
+    }
+
+    .button-row { display: flex; justify-content: flex-end; }
+
+    button {
+      background: none;
+      border: 1px solid #111;
+      padding: 5px 22px;
+      font-family: "Computer Modern Serif", Georgia, serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      color: #111;
+      transition: background 0.15s, color 0.15s;
+    }
+    button:hover:not(:disabled) { background: #111; color: #fffff8; }
+    button:disabled { border-color: #aaa; color: #aaa; cursor: default; }
+
+    /* ── Progress ── */
+    .progress-section { padding: 8px 0 20px; display: none; }
+
+    .progress-track {
+      width: 100%;
+      height: 2px;
+      background: #ddd;
+      margin-bottom: 8px;
+    }
+    .progress-fill {
+      height: 2px;
+      background: #111;
+      width: 0%;
+      transition: width 0.25s ease;
+    }
+    .progress-label {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: #666;
+      text-align: right;
+    }
+
+    /* ── Table ── */
+    .results { padding-top: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    thead th {
+      font-weight: normal;
+      font-style: italic;
+      padding: 7px 0;
+      text-align: left;
+    }
+    thead th.right { text-align: right; }
+    tbody td { padding: 5px 0; vertical-align: middle; }
+    tbody tr:last-child td { padding-bottom: 7px; }
+
+    td.rank { color: #999; font-size: 0.8rem; width: 28px; }
+    td.bar-col { width: 38%; padding: 0 12px 0 14px; }
+    .bar-track { width: 100%; height: 4px; background: #e8e8e0; }
+    .bar-fill  { height: 4px; background: #111; }
+    td.pct { text-align: right; font-variant-numeric: tabular-nums; width: 56px; }
+
+    .table-footer {
+      font-size: 0.78rem;
+      font-style: italic;
+      color: #888;
+      margin-top: 14px;
+      text-align: right;
+    }
+
+    /* ── Status messages ── */
+    .status {
+      font-style: italic;
+      color: #777;
+      font-size: 0.875rem;
+      padding: 20px 0;
+      text-align: center;
+    }
+    .status.error { color: #a00; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>NBA Championship Probabilities</h1>
+    <p class="meta" id="meta">2025–26 Season · Monte Carlo Simulation</p>
+  </header>
+
+  <hr class="rule">
+  <div class="controls">
+    <div class="slider-row">
+      <span class="slider-label">n =</span>
+      <input type="range" id="slider" min="0" max="5000" step="1" value="500">
+      <span class="slider-value" id="slider-val">500</span>
+    </div>
+    <div class="button-row">
+      <button id="run-btn">Simulate</button>
+    </div>
+  </div>
+
+  <div class="progress-section" id="progress-section">
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <p class="progress-label" id="progress-label"></p>
+  </div>
+
+  <hr class="rule" id="results-rule" style="display:none">
+  <div class="results" id="results"></div>
+
+</div>
+
+<script>
+  const slider    = document.getElementById('slider');
+  const sliderVal = document.getElementById('slider-val');
+  const runBtn    = document.getElementById('run-btn');
+  const progSec   = document.getElementById('progress-section');
+  const progFill  = document.getElementById('progress-fill');
+  const progLabel = document.getElementById('progress-label');
+  const resultsEl = document.getElementById('results');
+  const resultsRule = document.getElementById('results-rule');
+
+  const params = new URLSearchParams(window.location.search);
+  const season = params.get('season') || '2025-26';
+  document.getElementById('meta').textContent =
+    `${season} Season · Monte Carlo Simulation`;
+
+  slider.addEventListener('input', () => {
+    sliderVal.textContent = Number(slider.value).toLocaleString();
+  });
+
+  function fmt(n) { return Number(n).toLocaleString(); }
+
+  function renderTable(probabilities, simulations) {
+    const entries = Object.entries(probabilities).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) {
+      resultsEl.innerHTML = '<p class="status">No results yet. Run a simulation above.</p>';
+      resultsRule.style.display = 'block';
+      return;
+    }
+    const maxPct = entries[0][1];
+    const rows = entries.map(([team, pct], i) => {
+      const w = maxPct > 0 ? (pct / maxPct * 100).toFixed(1) : 0;
+      return `
+        <tr>
+          <td class="rank">${i + 1}</td>
+          <td>${team}</td>
+          <td class="bar-col">
+            <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
+          </td>
+          <td class="pct">${pct.toFixed(1)}%</td>
+        </tr>`;
+    }).join('');
+
+    resultsEl.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Team</th>
+            <th></th>
+            <th class="right">Probability</th>
+          </tr>
+        </thead>
+      </table>
+      <hr class="rule-mid">
+      <table><tbody>${rows}</tbody></table>
+      <hr class="rule">
+      <p class="table-footer">n = ${fmt(simulations)} simulations</p>`;
+    resultsRule.style.display = 'block';
+  }
+
+  function setRunning(running) {
+    runBtn.disabled = running;
+    slider.disabled = running;
+    progSec.style.display = running ? 'block' : 'none';
+    if (!running) {
+      progFill.style.width = '0%';
+      progLabel.textContent = '';
+    }
+  }
+
+  runBtn.addEventListener('click', () => {
+    const n = parseInt(slider.value, 10);
+    if (n === 0) return;
+
+    setRunning(true);
+    progLabel.textContent = `Loading data…`;
+
+    const es = new EventSource(`/simulate/stream?n=${n}&season=${encodeURIComponent(season)}`);
+
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.status === 'loading') {
+        progLabel.textContent = 'Loading team data…';
+      } else if (msg.status === 'clearing') {
+        progLabel.textContent = 'Clearing previous results…';
+      } else if (msg.status === 'running') {
+        progFill.style.width = msg.progress + '%';
+        progLabel.textContent = `${fmt(msg.completed)} / ${fmt(msg.total)}`;
+      } else if (msg.status === 'done') {
+        progFill.style.width = '100%';
+        es.close();
+        setRunning(false);
+        renderTable(msg.probabilities, msg.simulations);
+      } else if (msg.status === 'error') {
+        es.close();
+        setRunning(false);
+        resultsEl.innerHTML = `<p class="status error">${msg.message}</p>`;
+        resultsRule.style.display = 'block';
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      setRunning(false);
+      resultsEl.innerHTML = '<p class="status error">Connection lost. Is the server running?</p>';
+      resultsRule.style.display = 'block';
+    };
+  });
+</script>
+</body>
+</html>

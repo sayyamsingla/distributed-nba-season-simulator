@@ -1,5 +1,4 @@
 from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashteamstats, commonteamroster
-import pandas as pd
 import time
 import redis
 import json
