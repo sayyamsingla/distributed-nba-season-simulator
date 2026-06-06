@@ -194,7 +194,7 @@ Round 4:  NBA Finals
 
 **No real rotations.** Players are selected from the full roster weighted by usage rate, not actual 5-man lineups.
 
-**Star player bias.** Individual stats are weighted heavily. Teams with one elite player like Wemby tend to be overrated relative to deep, balanced rosters.
+**Star player bias.** Individual stats are weighted heavily.
 
 These are all V2 problems.
 
