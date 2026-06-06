@@ -2,6 +2,10 @@
 
 Simulates the entire NBA season 1000 times in parallel to compute championship probabilities.
 
+## Dashboard
+
+![NBA Championship Probabilities Dashboard](assets/dashboard.png)
+
 ---
 
 ## What it does
