@@ -5,7 +5,7 @@ from data_fetcher import get_all_data
 FOUL_SHOT_PENALTY_THREE = 0.05   # shooting % drops to 5% of normal on fouled three
 FOUL_SHOT_PENALT_REGULAR = 0.25  # shooting % drops to 25% of normal on fouled two
 
-def simulate_possession(player, team, opponent, league_avg_def):
+def simulate_possession(player, team, opponent, league_avg_def, league_avg_off):
     # calculate how many possessions this player touches the ball per game
     possessions_with_ball = 100 * (player['min_pg'] / 48) * player['usg_pct']
     
@@ -19,8 +19,13 @@ def simulate_possession(player, team, opponent, league_avg_def):
     # defensive modifier - good defenses reduce shooting percentage
     # lower def_rating = better defense = modifier below 1 = harder to score
     defensive_modifier = opponent['def_rating'] / league_avg_def
-    adjusted_fg_pct = player['fg_pct'] * defensive_modifier
-    adjusted_fg3_pct = player['fg3_pct'] * defensive_modifier
+
+    # offensive modifier - good offenses boost shooting percentage
+    # higher off_rating = better offense = modifier above 1 = easier to score
+    offensive_modifier = team['off_rating'] / league_avg_off
+
+    adjusted_fg_pct = player['fg_pct'] * defensive_modifier * offensive_modifier
+    adjusted_fg3_pct = player['fg3_pct'] * defensive_modifier * offensive_modifier
     
     # shooting percentage when fouled drops significantly
     fouled_fg3_pct = adjusted_fg3_pct * FOUL_SHOT_PENALTY_THREE
@@ -79,12 +84,12 @@ def simulate_possession(player, team, opponent, league_avg_def):
                return 2
             else: 
                return 0
-    
-    
+
 
 def simulate_game(home_team, away_team, data):
     possessions = int((home_team['pace'] + away_team['pace']))
     league_avg_def = get_league_avg_def_rating(data)
+    league_avg_off = get_league_avg_off_rating(data)
 
     home_score = 0
     away_score = 0 
@@ -105,7 +110,7 @@ def simulate_game(home_team, away_team, data):
                 if roll < cumulative:
                     selected_player = player
                     break
-            home_score += simulate_possession(selected_player, home_team, away_team, league_avg_def)
+            home_score += simulate_possession(selected_player, home_team, away_team, league_avg_def, league_avg_off)
         else: 
             roll = random.random() * away_total
             cumulative = 0
@@ -114,12 +119,16 @@ def simulate_game(home_team, away_team, data):
                 if roll < cumulative:
                     selected_player = player
                     break
-            away_score += simulate_possession(selected_player, away_team, home_team, league_avg_def)
+            away_score += simulate_possession(selected_player, away_team, home_team, league_avg_def, league_avg_off)
     home_score = int(home_score * 1.01)
     return home_score, away_score 
 
 def get_league_avg_def_rating(data):
     total = sum(team['def_rating'] for team in data.values())
+    return total / len(data)
+
+def get_league_avg_off_rating(data):
+    total = sum(team['off_rating'] for team in data.values())
     return total / len(data)
 
 

@@ -74,11 +74,14 @@ def get_standings(standings):
     sorted_east = sorted(east_standings, key=lambda x: east_standings[x]['wins'], reverse=True)
     sorted_west = sorted(west_standings, key=lambda x: west_standings[x]['wins'], reverse=True)
 
+    # return {
+    #     'east': sorted_east[:8],
+    #     'west': sorted_west[:8]
+    # }
     return {
-        'east': sorted_east[:8],
-        'west': sorted_west[:8]
+        'east': sorted_east,
+        'west': sorted_west
     }
-
 
 
 def simulate_series(team1, team2, data):
@@ -164,6 +167,36 @@ def get_schedule(season):
     
     return games
 
+
+
+def print_standings(standings, data):
+    east_standings = {}
+    for team_id in EAST_TEAMS:
+        if team_id in standings:
+            east_standings[team_id] = standings[team_id]
+
+    west_standings = {}
+    for team_id in WEST_TEAMS:
+        if team_id in standings:
+            west_standings[team_id] = standings[team_id]
+
+    sorted_east = sorted(east_standings, key=lambda x: east_standings[x]['wins'], reverse=True)
+    sorted_west = sorted(west_standings, key=lambda x: west_standings[x]['wins'], reverse=True)
+
+    print("\n--- EASTERN CONFERENCE ---")
+    for i, team_id in enumerate(sorted_east, 1):
+        wins = standings[team_id]['wins']
+        losses = standings[team_id]['losses']
+        name = data[team_id]['team_name']
+        print(f"{i}.) {name}: {wins}W - {losses}L")
+
+    print("\n--- WESTERN CONFERENCE ---")
+    for i, team_id in enumerate(sorted_west, 1):
+        wins = standings[team_id]['wins']
+        losses = standings[team_id]['losses']
+        name = data[team_id]['team_name']
+        print(f"{i}.) {name}: {wins}W - {losses}L")
+
 if __name__ == '__main__':
     import sys
     sys.path.append('../')
@@ -173,4 +206,5 @@ if __name__ == '__main__':
     standings = simulate_season(data)
     bracket = get_standings(standings)
     champion = simulate_playoffs(bracket, data)
+    print_standings(standings, data)
     print(f"Champion: {champion['team_name']}")

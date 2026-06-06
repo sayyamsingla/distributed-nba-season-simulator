@@ -54,7 +54,7 @@ def get_team_advanced_stats(season):
 
 def get_team_roster(team_id):
    roster = commonteamroster.CommonTeamRoster(team_id=team_id)
-   time.sleep(0.6)
+   time.sleep(0.7)
    df = roster.get_data_frames()[0]
    player_ids = []
 
