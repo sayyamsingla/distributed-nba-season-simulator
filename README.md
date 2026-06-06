@@ -220,6 +220,28 @@ V1 uses current season stats. V2 adds a stat projection layer. You pick a future
 
 ---
 
+## Project structure
+
+```
+distributed-nba-season-simulator/
+├── app/
+│   ├── simulation/
+│   │   ├── data_fetcher.py      # pulls and caches NBA stats from nba_api
+│   │   ├── game_simulator.py    # possession engine, game simulation, series simulation
+│   │   └── season_simulator.py  # full season, standings, playoff bracket
+│   ├── workers/
+│   │   └── tasks.py             # Celery task definition
+│   ├── database/
+│   │   └── database.py          # Postgres connection, table setup, read/write
+│   └── api/
+│       └── api.py               # FastAPI endpoint
+├── assets/
+│   └── dashboard.png
+├── frontend/
+│   └── index.html               # results dashboard
+└── README.md
+```
+---
 ## How to run
 
 ```bash
@@ -258,3 +280,6 @@ uvicorn app.api.api:app --reload
 ```
 
 Open `http://localhost:8000/probabilities?season=2025-26` in a browser.
+
+
+
