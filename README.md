@@ -1,16 +1,8 @@
 # NBA Distributed Season Simulator
 
-Simulates the entire NBA season 1000 times in parallel to compute championship probabilities.
+I've been a basketball fan my whole life. After watching this season's playoffs I kept thinking about one question: can you actually predict who wins the championship through probability? Not a gut feeling, not a power ranking, but real math based on how teams actually play.
 
-## Dashboard
-
-![NBA Championship Probabilities Dashboard](assets/dashboard.png)
-
----
-
-## What it does
-
-Pulls real 2025-26 NBA stats, simulates all 1230 regular season games and the full playoffs, and counts who wins the championship across 1000 runs.
+So I built this. It pulls real 2025-26 NBA player and team stats, simulates the entire season and playoffs, and runs that simulation thousands of times to compute championship probabilities.
 
 ```
 San Antonio Spurs:      40.3%
@@ -21,105 +13,128 @@ Oklahoma City Thunder:   8.5%
 
 ---
 
-## How the math works
+## Dashboard
 
-### Monte Carlo
+![NBA Championship Probabilities Dashboard](assets/dashboard.png)
 
-Run the season 1000 times. Count who wins most often. That is Monte Carlo. The name comes from the casino because it uses randomness.
+---
 
-### Shooting
+## How it works
 
-Each shot is a random number between 0 and 1. If Shai shoots 55%, any number below 0.55 is a make. 55% of all numbers between 0 and 1 fall below 0.55, so he makes it 55% of the time. The stats make the dice weighted.
+The core idea is Monte Carlo simulation. Instead of trying to solve the math directly, you just run the season over and over and count what happens.
 
-Both of these work identically:
+Run the season 1000 times. Count who wins the championship most often. That percentage is your probability.
+
+The randomness is what makes it interesting. Each game is different because each shot, each possession, each turnover is decided by a weighted random number based on real player stats. Shai making 52% of his shots means any random number below 0.52 is a make. 52% of all numbers between 0 and 1 fall below 0.52, so he makes it at the right rate naturally.
+
+Both of these are equivalent:
 
 ```python
-random.random() < 0.55  # makes it
-random.random() < 0.45  # misses it
+random.random() < 0.52  # makes it
+random.random() < 0.48  # misses it
 ```
 
-### Turnovers
+Run it enough times and the law of large numbers takes care of the rest.
 
-We calculate how many possessions a player touches the ball per game:
+---
+
+## What goes into each possession
+
+This is where it gets interesting. A lot of simulators just use team-level averages. I wanted something more realistic, so each possession accounts for:
+
+**Who gets the ball**
+
+Every player has a usage rate — the percentage of team possessions they use while on the court. I weight player selection by usage rate, so Shai touches the ball way more often than a bench player. Shaq's three point attempt rate is basically 0%. Steph's is around 50%. The simulation reflects that.
+
+**Turnovers**
+
+Each player has a real turnover probability per possession:
 
 ```
 possessions with ball = 100 x (minutes per game / 48) x usage rate
+turnover probability  = turnovers per game / possessions with ball
 ```
 
-Then divide his turnovers per game by that:
-
-```
-turnover probability = turnovers per game / possessions with ball
-```
-
-Example for Shai (2 turnovers, 34 minutes, 32% usage):
-
+For Shai (2 turnovers, 34 minutes, 32% usage):
 ```
 possessions = 100 x (34/48) x 0.32 = 22.7
 turnover probability = 2 / 22.7 = 8.8%
 ```
 
-The formula is not just minutes times usage. You need to find what fraction of the game the player is on court first, then scale by team possessions, then by usage.
+**Fouls**
 
-### Three point attempt rate
-
-Each player has a real three point attempt rate:
-
-```
-three point rate = three point attempts per game / field goal attempts per game
-```
-
-Shaq has a rate near 0%. Steph is near 50%. The simulation reflects actual player tendencies instead of assuming everyone shoots threes at the same rate.
-
-### Foul rate
-
-Each player has a real foul rate based on their free throw data:
+Each player has a real foul rate based on their free throw attempts:
 
 ```
 foul rate = free throw attempts per game / (field goal attempts per game x 2)
 ```
 
-We divide by 2 because one foul gives 2 free throws. Shai draws a lot of fouls. A bench player who never gets to the line draws almost none.
+Shai draws a ton of fouls. A bench player who never gets to the line barely ever gets fouled. That difference shows up in the simulation.
 
-### Defense
+**Defense**
 
-Every team has a defensive rating, which is points allowed per 100 possessions. Lower is better. League average is 114.7.
-
-```
-defensive modifier = opponent defensive rating / league average
-```
-
-Against the Thunder (106.5 defensive rating):
+Every team has a defensive rating (points allowed per 100 possessions). The Thunder at 106.5 are elite. A bad defense might be 118+. I use this to adjust shooting percentages every possession:
 
 ```
-modifier = 106.5 / 114.7 = 0.928
+defensive modifier = opponent defensive rating / league average (114.7)
+
+vs Thunder: 106.5 / 114.7 = 0.928 → shooting % drops 7%
+vs bad defense: 118 / 114.7 = 1.03 → shooting % bumps up slightly
 ```
 
-A player's shooting percentage gets multiplied by 0.928. Good defenses make scoring harder.
+**Offense**
 
-### Offense
+Same idea on the other side. Teams with high offensive ratings get a boost. This helps balanced teams like the Knicks who don't have one dominant star but have a great system.
+
+**Home court**
+
+Home teams win roughly 60% of games. I model this as a 1% boost to the home team's final score. Simple but it adds up across 1230 games.
+
+---
+
+## The distributed part
+
+Running 1000 full season simulations sequentially takes 26 minutes on a single process. That's too slow to be useful.
+
+The fix is Celery and Redis. Celery is a distributed task queue. Redis is the message broker that sits between you and the workers. You dispatch 1000 jobs, Redis holds them in a queue, and 10 workers pull from that queue simultaneously.
 
 ```
-offensive modifier = team offensive rating / league average
+You dispatch 1000 jobs
+        |
+        v
+Redis holds the job queue
+        |
+        v
+10 workers pull jobs simultaneously
+        |
+        v
+Each worker runs one full season simulation
+        |
+        v
+Results saved to PostgreSQL
 ```
 
-Players on good offensive teams get a boost. Players on bad offensive teams get penalized. This helps balanced teams like the Knicks who do not have one dominant star.
+One problem: each worker was calling the NBA API to fetch player and team data. With 10 workers running at once that's 330 simultaneous API calls. The NBA API blocks you immediately. The fix was to fetch the data once, serialize it to JSON, and cache it in Redis. Every worker reads from Redis instead of hitting the API.
 
-### Home court advantage
+Result: 1000 simulations in 7 minutes instead of 26. 3.7x speedup.
 
-Home teams win roughly 60% of games in the NBA. We model this as a 1% boost to the home team's final score.
+---
 
-```python
-home_score = int(home_score * 1.01)
-```
+## Benchmark
 
-### Why player ID not player name
+| Method | Time |
+|---|---|
+| Sequential (1 process) | 1559 seconds (26 minutes) |
+| Distributed (10 workers) | 419 seconds (7 minutes) |
+| Speedup | 3.7x |
 
-Two NBA players can share the same name. Player ID is unique for every player so we use that as the dictionary key.
+Theoretical max with 10 workers is 10x. Real world is lower because of Redis overhead, job dispatch time, and Postgres write contention across concurrent workers.
 
 ---
 
 ## Data structure
+
+Season data is keyed by team ID:
 
 ```python
 {
@@ -148,78 +163,46 @@ Two NBA players can share the same name. Player ID is unique for every player so
 }
 ```
 
+Player IDs are used as keys instead of names because two NBA players can share the same name.
+
 ---
 
-## Why we use the real NBA schedule
+## Why the real schedule
 
-We pull the actual 2025-26 schedule from the NBA API instead of generating a fake one. This means home and away assignments are accurate and back to backs are real. Generating a fake schedule would require implementing all NBA scheduling rules from scratch.
-
-Regular season game IDs start with 0022. Playoff game IDs start with 0042. We filter to 0022 to get exactly 1230 regular season games.
+I pull the actual 2025-26 NBA schedule from the API instead of generating a fake one. Home and away assignments are accurate, back to backs are real. Regular season game IDs start with 0022, playoff game IDs start with 0042. Filtering to 0022 gives exactly 1230 games.
 
 ---
 
 ## Playoff format
 
-16 teams, 8 per conference, seeded by regular season wins. Each round is best of 7.
+16 teams, 8 per conference, seeded by simulated regular season wins. Each round is best of 7.
 
 ```
-Round 1:  1v8, 2v7, 3v6, 4v5  (8 series)
-Round 2:  winners play winners (4 series)
-Round 3:  conference finals    (2 series)
-Round 4:  NBA Finals           (1 series)
-```
-
-East and West conferences are hardcoded because they never change.
-
----
-
-## Known limitations in V1
-
-**No injury modeling.** Every player plays every game at their season average. The 2025-26 Bucks finished 11th in the East because Damian Lillard got injured early. The simulator does not know this and rates them too highly.
-
-**No pass simulation.** Every possession ends with the selected player. In reality players pass and create shots for teammates. V2 could model this by chaining possession selections.
-
-**No 5 man rotation modeling.** We select players from the full roster weighted by usage rate instead of simulating actual lineups. Players with low usage get selected less often, which approximates real rotations but is not exact. V2 could model actual lineups.
-
-**Star player bias.** The simulator rewards individual stats heavily. Teams with one elite player like Wemby tend to be overrated. V2 with multi-season averaging would temper this.
-
----
-
-## Architecture
-
-```
-nba_api (fetched once)
-        |
-        v
-Redis cache (season data stored as JSON)
-        |
-        v
-Celery (1000 simulation jobs dispatched)
-        |
-        v
-10 parallel workers (each runs one full season)
-        |
-        v
-PostgreSQL (each worker saves the champion)
-        |
-        v
-FastAPI (serves championship probabilities)
-        |
-        v
-HTML frontend (displays results)
+Round 1:  1v8, 2v7, 3v6, 4v5
+Round 2:  winners bracket
+Round 3:  conference finals
+Round 4:  NBA Finals
 ```
 
 ---
 
-## Benchmark
+## Known limitations
 
-| Method | Time |
-|---|---|
-| Sequential (1 process) | 1559 seconds (26 minutes) |
-| Distributed (10 workers) | 419 seconds (7 minutes) |
-| Speedup | 3.7x |
+**No injury modeling.** Every player plays every game at their season average. The 2025-26 Bucks finished 11th in the East because Lillard got hurt early. The simulator doesn't know that and rates them too high.
 
-Theoretical max with 10 workers is 10x. Real world is lower because of Redis overhead, job dispatch time, and Postgres write contention across concurrent workers.
+**No passing.** Every possession ends with the player who was selected. In reality players pass and create shots for others.
+
+**No real rotations.** Players are selected from the full roster weighted by usage rate, not actual 5-man lineups.
+
+**Star player bias.** Individual stats are weighted heavily. Teams with one elite player like Wemby tend to be overrated relative to deep, balanced rosters.
+
+These are all V2 problems.
+
+---
+
+## V2 plan
+
+V1 uses current season stats. V2 adds a stat projection layer. You pick a future season, the system pulls 2-3 seasons of historical data per player, runs an ML model with age curves to project stats forward, and feeds those projections into the same simulator. The simulation engine stays the same. Only the data layer changes.
 
 ---
 
@@ -237,17 +220,7 @@ Theoretical max with 10 workers is 10x. Real world is lower because of Redis ove
 
 ---
 
-## V1 vs V2
-
-V1 uses current season stats and simulates the 2025-26 season.
-
-V2 will add a stat projection layer. The user picks a future season. The system pulls 2-3 seasons of historical stats per player, uses an ML model with age curves to project future performance, and feeds those projections into the same V1 simulator. The simulation engine stays the same. Only the data layer changes.
-
----
-
 ## How to run
-
-**Install dependencies:**
 
 ```bash
 python3 -m venv venv
@@ -255,48 +228,33 @@ source venv/bin/activate
 pip install nba_api celery redis psycopg2-binary fastapi uvicorn pandas
 ```
 
-**Set up the database:**
-
 ```bash
 psql postgres -c "CREATE DATABASE nba_sim;"
 python3 -c "from app.database.database import create_table; create_table()"
 ```
 
-**Cache season data (run once):**
-
 ```bash
+# fetch and cache season data once
 python3 -c "from app.simulation.data_fetcher import cache_data; cache_data('2025-26')"
 ```
 
-**Start Redis:**
-
 ```bash
+# start Redis
 brew services start redis
-```
 
-**Start Celery workers:**
-
-```bash
+# start workers
 celery -A app.workers.tasks worker --loglevel=info
-```
 
-**Run 1000 simulations:**
-
-```bash
+# run simulations
 python3 -c "
 from celery import group
 from app.workers.tasks import run_simulation
 job_group = group(run_simulation.s('2025-26') for i in range(1000))
 job_group.apply_async().get()
 "
-```
 
-**Start the API:**
-
-```bash
+# start API
 uvicorn app.api.api:app --reload
 ```
-
-**View results:**
 
 Open `http://localhost:8000/probabilities?season=2025-26` in a browser.
